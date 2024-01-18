@@ -1,0 +1,40 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  tag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: Docker@2
+      inputs:
+        containerRegistry: 'Docker'
+        repository: $(DOCKER_REPOSITORY_NAME)
+        command: 'build'
+        Dockerfile: '**/Dockerfile'
+    - task: Install_Twistlock
+      inputs:
+        script: 'curl -v -L -X GET -u $(PRISMA_USER):$(PRISMA_SECRET) -o ./twistcli https://$(PRISMA_CONSOLE)/api/v32.01/util/twistcli'
+    - task: Make_Executable
+      inputs:
+        script: 'chmod a+x ./twistcli'
+    - task: List_Images
+      inputs:
+        script: 'docker images'
+    - task: Scan_Images
+      inputs:
+        script: './twistcli images scan --address https://$(PRISMA_CONSOLE) --user $(PRISMA_USER) --password $(PRISMA_SECRET) --details $(DOCKER_REPOSITORY_NAME):$(Build.BuildId)'
